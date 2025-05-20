@@ -355,4 +355,18 @@ def get_extended_attention_mask(attention_mask: Tensor, dtype) -> Tensor:
   extended_attention_mask = attention_mask[:, None, None, :]
   extended_attention_mask = extended_attention_mask.to(dtype=dtype)  # fp16 compatibility
   extended_attention_mask = (1.0 - extended_attention_mask) * -10000.0
+
+  # GPT-2에서 필요한 캐주얼 마스킹(미래 토큰을 보지 않도록)
+  seq_length = attention_mask.size(1)
+  # 상삼각행렬 마스크 생성 (1은 마스킹할 위치)
+  causal_mask = torch.triu(torch.ones((seq_length, seq_length), dtype=torch.bool), diagonal=1)
+  # [1, 1, seq_length, seq_length] 형태로 변환하고 -10000.0 값으로 설정
+  causal_mask = causal_mask.unsqueeze(0).unsqueeze(0)
+  causal_mask = causal_mask.to(dtype=extended_attention_mask.dtype)
+  causal_mask = causal_mask * -10000.0
+  
+  # 패딩 마스크와 캐주얼 마스크 결합
+  extended_attention_mask = extended_attention_mask.expand(-1, -1, seq_length, -1)
+  extended_attention_mask = extended_attention_mask + causal_mask.to(extended_attention_mask.device)
+  
   return extended_attention_mask
