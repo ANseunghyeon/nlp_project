@@ -28,8 +28,11 @@ class GPT2Layer(nn.Module):
       - GPT-2 layer는 각 sublayer의 변환된 출력에 드롭아웃을 적용한 후, 이를 sublayer 입력에 더한다. 
         이 함수에서는 Layer Normalization을 적용하지 않는다.
     """
-    ### 완성시켜야 할 빈 코드 블록
-    raise NotImplementedError
+    transformed_output = dense_layer(output)
+    # 드롭아웃 적용
+    dropped_output = dropout(transformed_output)
+    # 원래 입력에 더하기 (residual connection 미분해서 1+x가 되도록함. gradient vanishing 방지)
+    return input + dropped_output
 
 
   def forward(self, hidden_states, attention_mask):
@@ -40,6 +43,22 @@ class GPT2Layer(nn.Module):
       - Dropout, Residual Connection, Layer Normalization를 적용하시오(self.add() 메서드를 사용)
       - Feed-Forward layer: hidden states를 추가로 refine하기 위해 변환을 적용한다.
     """
-
-    ### 완성시켜야 할 빈 코드 블록
-    raise NotImplementedError
+    # 1. 어텐션 블록
+    # Layer normalization 적용
+    norm_hidden_states = self.attention_layer_norm(hidden_states)
+    # Self-attention 계산
+    attention_output = self.self_attention(norm_hidden_states, attention_mask)
+    # Residual connection과 dropout 적용
+    hidden_states = self.add(hidden_states, attention_output, self.attention_dense, self.attention_dropout)
+    
+    # 2. 피드포워드 블록
+    # Layer normalization 적용
+    norm_hidden_states = self.out_layer_norm(hidden_states)
+    # 중간 피드포워드 레이어
+    interm_output = self.interm_dense(norm_hidden_states)
+    # 활성화 함수 적용
+    interm_output = self.interm_af(interm_output)
+    # Residual connection과 dropout 적용
+    hidden_states = self.add(hidden_states, interm_output, self.out_dense, self.out_dropout)
+    
+    return hidden_states
