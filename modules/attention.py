@@ -33,10 +33,25 @@ class CausalSelfAttention(nn.Module):
     return proj
 
   def attention(self, key, query, value, attention_mask):
-
-    ### 완성시켜야 할 빈 코드 블록
-    raise NotImplementedError
-
+    # 어텐션 스코어 계산
+    attention_scores = torch.matmul(query, key.transpose(-1, -2))
+    attention_scores = attention_scores / torch.sqrt(torch.tensor(self.attention_head_size, dtype=attention_scores.dtype))
+    
+    # 어텐션 마스크 추가(미래 토큰 -inf)
+    attention_scores = attention_scores + attention_mask
+    
+    # 어텐션 확률 계산
+    attention_probs = torch.softmax(attention_scores, dim=-1)
+    attention_probs = self.dropout(attention_probs)
+    
+    # 컨텍스트 레이어 계산
+    context_layer = torch.matmul(attention_probs, value)
+    
+    # 어텐션 헤드 결합
+    context_layer = rearrange(context_layer, 'b h t d -> b t h d')
+    context_layer = rearrange(context_layer, 'b t h d -> b t (h d)')
+    
+    return context_layer
 
   def forward(self, hidden_states, attention_mask):
     """
